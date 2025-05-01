@@ -9,7 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrUserDuplicateEmail = errors.New("邮箱冲突")
+var (
+	ErrUserDuplicateEmail = errors.New("邮箱冲突")
+	//未找到用户
+	ErrUserNotFound = gorm.ErrRecordNotFound
+)
 
 //数据库对象，直接映射到数据库的表中
 type User struct{
@@ -46,8 +50,15 @@ func (ud *UserDAO) Insert(ctx context.Context, u User)error{
 	if me,ok := err.(*mysql.MySQLError); ok {
 		const uniqueIndexErrNo uint16 = 1062
 		if me.Number == uniqueIndexErrNo {
+			//邮箱冲突，用户冲突
 			return ErrUserDuplicateEmail
 		}
 	}
 	return err
+}
+
+func (ud *UserDAO) FindByEmail(ctx context.Context, email string)(User, error){
+	var u User
+	err := ud.db.WithContext(ctx).Where("email=?",email).First(&u).Error
+	return u, err
 }

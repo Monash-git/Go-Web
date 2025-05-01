@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 
 	"github.com/gin-gonic/gin"
 )
@@ -100,6 +101,40 @@ func (c *UserHandler) Signup(ctx *gin.Context){
 	}
 }
 
-func (c *UserHandler) Login(ctx *gin.Context){}
+//session登录
+func (c *UserHandler) Login(ctx *gin.Context){
+	type Req struct{
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil{
+		return
+	}
+	u, err := c.svc.Login(ctx, req.Email,req.Password)
+	switch err {
+	case nil:
+		//session逻辑
+		sess := sessions.Default(ctx)
+		sess.Set("userId",u.Id)
+		sess.Options(sessions.Options{
+			//60秒过期
+			MaxAge: 60,
+		})
+		err = sess.Save()
+		if err != nil {
+			ctx.String(http.StatusOK,"系统错误")
+		}
+		ctx.String(http.StatusOK,"登录成功")
+	case service.ErrInvalidUserOrPassword:
+		ctx.String(http.StatusOK,"用户名或密码错误")
+	default:
+		ctx.String(http.StatusOK,"系统错误")
+	}
+}
+
+
 func (c *UserHandler) Edit(ctx *gin.Context){}
-func (c *UserHandler) Profile(ctx *gin.Context){}
+func (c *UserHandler) Profile(ctx *gin.Context){
+	ctx.String(http.StatusOK, "这是 profile")
+}
