@@ -56,7 +56,8 @@ func initWebServer() *gin.Engine{
 
 	server.Use(ratelimit.NewBuilder(redisClient,time.Second,1).Build())
 
-	useSeesion(server)
+	// useSeesion(server)
+	useJWT(server)
 
 	return server
 }
@@ -80,6 +81,12 @@ func initDB() *gorm.DB{
 		panic(err)
 	}
 	return db
+}
+
+//使用jwt实现登录态保持
+func useJWT(server *gin.Engine){
+	login := middleware.LoginJWTMiddlewareBuilder{}
+	server.Use(login.CheckLogin())
 }
 
 //使用session实现登录态保持

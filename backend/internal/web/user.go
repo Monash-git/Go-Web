@@ -4,14 +4,18 @@ import (
 	"backend/internal/domain"
 	"backend/internal/service"
 	"net/http"
+	"time"
 
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gin-gonic/gin"
 )
 
 var ErrUserDuplicateEmail = service.ErrUserDuplicateEmail
+
+var JWTKey = []byte("k6CswdUm77WKcbM68UQUuxVsHSpTCwgK")
 
 //校验正则表达式
 const(
@@ -24,6 +28,12 @@ type UserHandler struct{
 	emailRegexExp *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	svc *service.UserService
+}
+
+type UserClaims struct{
+	jwt.RegisteredClaims
+	uid int64
+	UserAgent string
 }
 
 //UserHandler初始化方法
@@ -40,7 +50,7 @@ func (c *UserHandler) RegisterRoutes(server *gin.Engine){
 	//分组路由
 	ug := server.Group("/users")
 	ug.POST("/signup",c.Signup)
-	ug.POST("/login",c.Login)
+	ug.POST("/login",c.LoginJWT)
 	ug.POST("/edit",c.Edit)
 	ug.POST("/profile",c.Profile)
 }
@@ -101,6 +111,42 @@ func (c *UserHandler) Signup(ctx *gin.Context){
 	}
 }
 
+//JWT登录
+func (c *UserHandler) LoginJWT(ctx *gin.Context){
+	type Req struct{
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil{
+		return
+	}
+	u, err := c.svc.Login(ctx, req.Email,req.Password)
+	//JWT逻辑
+	switch err{
+	case nil:
+		uc := UserClaims{
+			uid: u.Id,
+			UserAgent: ctx.GetHeader("User-Agent"),
+			RegisteredClaims: jwt.RegisteredClaims{
+				//五分钟过期
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute*5)),
+			},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS512,uc)
+		tokenStr,err := token.SignedString(JWTKey)
+		if err != nil {
+			ctx.String(http.StatusOK, "系统错误")
+		}
+		ctx.Header("x-jwt-token",tokenStr)
+		ctx.String(http.StatusOK, "登录成功")
+	case service.ErrInvalidUserOrPassword:
+		ctx.String(http.StatusOK, "用户名或者密码错误")
+	default:
+		ctx.String(http.StatusOK, "系统错误")
+	}
+}
+
 //session登录
 func (c *UserHandler) Login(ctx *gin.Context){
 	type Req struct{
@@ -112,9 +158,9 @@ func (c *UserHandler) Login(ctx *gin.Context){
 		return
 	}
 	u, err := c.svc.Login(ctx, req.Email,req.Password)
+	//session逻辑
 	switch err {
 	case nil:
-		//session逻辑
 		sess := sessions.Default(ctx)
 		sess.Set("userId",u.Id)
 		sess.Options(sessions.Options{
