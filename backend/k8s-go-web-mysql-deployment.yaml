@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-web-mysql
+  labels:
+    app: go-web-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-web-mysql
+  template:
+    metadata:
+      name: go-web-mysql
+      labels:
+        app: go-web-mysql
+    spec:
+      containers:
+        - name: go-web-mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: mysql-storage
+      restartPolicy: Always
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            #PVC persistent volume claim
+            claimName: go-web-mysql-pvc

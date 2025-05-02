@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-web-service
+spec:
+  # 三个副本
+  replicas: 3
+  selector:
+    matchLabels:
+      app: go-web
+  template:
+    metadata:
+      labels:
+        # 这个app名字一定要和matchLabels相同
+        app: go-web
+        # 这个是Deployment管理的Pod的模板
+    spec:
+      # 在主容器启动前先执行这个 initContainer，确保数据库存在
+      initContainers:
+        - name: init-goweb-db
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - |
+              until mysqladmin ping -h go-web-mysql -P 3308 --silent; do
+                echo "Waiting for MySQL at go-web-mysql:3308..."
+                sleep 3
+              done
+              mysql -h go-web-mysql -P 3308 \
+                    -uroot -proot \
+                    -e "CREATE DATABASE IF NOT EXISTS \`goweb\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+      # Pod里面运行的所有的container
+      containers:
+        - name: go-web
+          image: Mark/go-web:v0.0.1
+          ports:
+            - containerPort: 8080
+      restartPolicy: Always

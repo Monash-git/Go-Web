@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-web-redis
+  labels:
+    app: go-web-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-web-redis
+  template:
+    metadata:
+      name: go-web-redis
+      labels:
+        app: go-web-redis
+    spec:
+      containers:
+        - name: go-web-redis
+          image: redis:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+      restartPolicy: Always

@@ -22,9 +22,12 @@ import (
 
 func main(){
 	db := initDB()
-	
 	server := initWebServer()
 	initUser(server,db)
+	// server:=gin.Default()
+	// server.GET("/hello",func(ctx *gin.Context) {
+	// 	ctx.String(http.StatusOK,"hello,world")
+	// })
 	server.Run(":8080")
 }
 
@@ -71,7 +74,7 @@ func initUser(server *gin.Engine, db *gorm.DB){
 }
 
 func initDB() *gorm.DB{
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/goweb"))
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
 	if err != nil{
 		panic(err)
 	}
